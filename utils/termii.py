@@ -63,7 +63,8 @@ def send_otp(phone):
     cache.set(_otp_cache_key(phone), otp, timeout=OTP_TTL_SECONDS)
     message = f"Your NARA verification code is {otp}. It expires in 10 minutes. Do not share it."
     logger.info("OTP for %s: %s", phone, otp)
-    send_sms(phone, message)
+    if settings.TERMII_API_KEY:
+        send_sms(phone, message)
     return otp
 
 

@@ -300,3 +300,43 @@ def promote_waitlist_member(group_id):
     )
 
     logger.info("Waitlist member %s promoted to group %s", member.email, group.name)
+
+
+@shared_task
+def match_waitlisted_members():
+    """Runs daily — tries to match waitlisted members to available FORMING groups."""
+    from apps.waitlist.models import Waitlist
+    from apps.groups.matching import find_best_matching_group, member_is_already_in_active_group
+
+    combinations = Waitlist.objects.filter(
+        status="WAITING",
+    ).values_list("goal_type", "contribution_tier").distinct()
+
+    for goal_type, contribution_tier in combinations:
+        group = find_best_matching_group(goal_type, contribution_tier)
+        while group:
+            candidate = Waitlist.objects.filter(
+                goal_type=goal_type,
+                contribution_tier=contribution_tier,
+                status="WAITING",
+            ).order_by("priority").first()
+
+            if not candidate:
+                break
+
+            if member_is_already_in_active_group(candidate.member):
+                candidate.status = "CANCELLED"
+                candidate.save(update_fields=["status"])
+                candidate = Waitlist.objects.filter(
+                    goal_type=goal_type,
+                    contribution_tier=contribution_tier,
+                    status="WAITING",
+                ).order_by("priority").first()
+                if not candidate:
+                    break
+
+            promote_waitlist_member(str(group.id))
+
+            slot_remaining = group.members.count() < group.max_members
+            if not slot_remaining:
+                break

@@ -9,7 +9,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Member
-        fields = ["full_name", "email", "phone", "password"]
+        fields = ["full_name", "email", "phone", "password", "bank_name", "account_number", "bvn", "nin"]
 
     def validate_phone(self, value):
         validate_nigerian_phone(value)

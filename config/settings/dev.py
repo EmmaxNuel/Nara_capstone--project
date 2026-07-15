@@ -3,7 +3,7 @@ import sys
 
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "172.16.1.104", "192.168.68.153", "172.16.1.121"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "172.16.1.104", "192.168.68.153", "172.16.1.121", "172.16.1.149"]
 
 DATABASES = {
     "default": {
@@ -32,6 +32,8 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
 }  # noqa: F405
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+CELERY_TASK_ALWAYS_EAGER = True
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 

@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAdminUser
 
 from apps.groups.models import GroupMembership
 from apps.contributions.models import Contribution
+from apps.admin_panel.audit import log_action
 from utils.responses import success_response, error_response
 from utils.flutterwave import initiate_transfer
 from .models import PotDisbursement
@@ -95,6 +96,13 @@ class ProcessDisbursementView(APIView):
             if group.current_cycle_month > group.max_members:
                 group.status = "COMPLETE"
             group.save(update_fields=["current_cycle_month", "status"])
+
+        log_action(
+            collector, "POT_DISBURSEMENT",
+            f"Pot disbursed ₦{amount} for {month_year} to {collector.full_name}. Status: {status}",
+            amount=amount,
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
 
         serializer = PotDisbursementSerializer(disbursement)
         return success_response(

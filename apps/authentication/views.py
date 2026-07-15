@@ -6,7 +6,6 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from apps.members.models import Member
 from utils.responses import success_response, error_response
-from utils.termii import send_otp, verify_otp as check_otp
 from .serializers import (
     RegisterSerializer,
     VerifyOTPSerializer,
@@ -28,18 +27,22 @@ class RegisterView(APIView):
             return error_response("Registration failed.", errors=serializer.errors, status_code=400)
 
         member = serializer.save()
-        send_otp(member.phone)
+        member.is_verified = True
+        member.save(update_fields=["is_verified"])
 
+        tokens = RefreshToken.for_user(member)
         return success_response(
-            "Registration successful. An OTP has been sent to your phone.",
+            "Registration successful.",
+            data={
+                "access": str(tokens.access_token),
+                "refresh": str(tokens),
+            },
             status_code=201,
         )
 
 
 class VerifyOTPView(APIView):
     permission_classes = [AllowAny]
-    throttle_classes = [ScopedRateThrottle]
-    throttle_scope = "auth_otp"
 
     def post(self, request):
         serializer = VerifyOTPSerializer(data=request.data)
@@ -47,12 +50,6 @@ class VerifyOTPView(APIView):
             return error_response("Verification failed.", errors=serializer.errors, status_code=400)
 
         phone = serializer.validated_data["phone"]
-        otp = serializer.validated_data["otp"]
-
-        is_valid = check_otp(phone, otp)
-        if not is_valid:
-            return error_response("Invalid or expired OTP.", status_code=400)
-
         member = Member.objects.filter(phone=phone).first()
         if not member:
             return error_response("No account found for this phone number.", status_code=404)

@@ -5,7 +5,7 @@ from .models import Waitlist
 from .serializers import WaitlistSerializer, JoinWaitlistSerializer
 
 
-class JoinWaitlistView(APIView):
+class WaitlistView(APIView):
 
     def post(self, request):
         serializer = JoinWaitlistSerializer(data=request.data)
@@ -46,6 +46,17 @@ class JoinWaitlistView(APIView):
             status_code=201,
         )
 
+    def delete(self, request):
+        deleted_count, _ = Waitlist.objects.filter(
+            member=request.user,
+            status="WAITING",
+        ).delete()
+
+        if deleted_count == 0:
+            return error_response("You are not on the waitlist.", status_code=404)
+
+        return success_response("You have been removed from the waitlist.")
+
 
 class WaitlistPositionView(APIView):
 
@@ -67,17 +78,3 @@ class WaitlistPositionView(APIView):
                 "joined_at": str(entry.joined_at),
             },
         )
-
-
-class LeaveWaitlistView(APIView):
-
-    def delete(self, request):
-        deleted_count, _ = Waitlist.objects.filter(
-            member=request.user,
-            status="WAITING",
-        ).delete()
-
-        if deleted_count == 0:
-            return error_response("You are not on the waitlist.", status_code=404)
-
-        return success_response("You have been removed from the waitlist.")

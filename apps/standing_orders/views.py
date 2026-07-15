@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 
 from apps.groups.models import GroupMembership
+from apps.admin_panel.audit import log_action
 from utils.responses import success_response, error_response
 from .models import StandingOrder
 from .serializers import StandingOrderSerializer, CreateStandingOrderSerializer, PauseStandingOrderSerializer
@@ -69,6 +70,13 @@ class PauseStandingOrderView(APIView):
         standing_order.pause_reason = serializer.validated_data["pause_reason"]
         standing_order.save(update_fields=["status", "pause_reason"])
 
+        log_action(
+            request.user, "STANDING_ORDER_PAUSED",
+            standing_order.pause_reason,
+            amount=standing_order.amount,
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+
         return success_response("Standing order paused.")
 
 
@@ -86,5 +94,12 @@ class ResumeStandingOrderView(APIView):
         standing_order.status = "ACTIVE"
         standing_order.pause_reason = None
         standing_order.save(update_fields=["status", "pause_reason"])
+
+        log_action(
+            request.user, "STANDING_ORDER_RESUMED",
+            "Standing order resumed",
+            amount=standing_order.amount,
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
 
         return success_response("Standing order resumed.")

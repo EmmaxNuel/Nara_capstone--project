@@ -9,8 +9,9 @@ class MemberProfileSerializer(serializers.ModelSerializer):
         model = Member
         fields = [
             "id", "full_name", "email", "phone", "bank_name",
-            "account_number", "monthly_income", "contribution_tier",
-            "savings_goal", "status", "is_verified", "joined_at",
+            "account_number", "bvn", "nin", "monthly_income",
+            "contribution_tier", "savings_goal", "status",
+            "is_verified", "joined_at",
         ]
         read_only_fields = ["id", "email", "phone", "is_verified", "joined_at", "status"]
 

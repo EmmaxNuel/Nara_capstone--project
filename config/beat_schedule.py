@@ -28,4 +28,9 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.contributions.tasks.check_grace_periods",
         "schedule": crontab(hour=8, minute=30),
     },
+    # Match waitlisted members to available FORMING groups every day at 7:00am
+    "match-waitlisted-members": {
+        "task": "apps.contributions.tasks.match_waitlisted_members",
+        "schedule": crontab(hour=7, minute=0),
+    },
 }

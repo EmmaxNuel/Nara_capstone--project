@@ -96,6 +96,6 @@ class WaitlistTests(TestCase):
         Waitlist.objects.create(
             member=self.member, goal_type="CAR", contribution_tier=200000, priority=1
         )
-        response = self.client.delete("/api/v1/waitlist/leave/")
+        response = self.client.delete("/api/v1/waitlist/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(Waitlist.objects.filter(member=self.member, status="WAITING").exists())

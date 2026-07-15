@@ -2,6 +2,7 @@ from datetime import date
 from rest_framework.views import APIView
 
 from apps.members.models import Member
+from apps.admin_panel.audit import log_action
 from utils.responses import success_response, error_response
 from .models import InsuranceCover
 from .serializers import InsuranceCoverSerializer, FileCLaimSerializer
@@ -52,6 +53,12 @@ class FileClaimView(APIView):
                 member.standing_order.save(update_fields=["status", "pause_reason"])
             except Exception:
                 pass
+
+        log_action(
+            request.user, "INSURANCE_CLAIM",
+            f"Claim filed — reason: {claim_reason}",
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
 
         return success_response(
             "Claim filed successfully. Our team will review it within 48 hours.",

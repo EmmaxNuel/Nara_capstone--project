@@ -8,6 +8,7 @@ from apps.insurance.models import InsuranceCover
 from apps.waitlist.models import Waitlist
 from utils.responses import success_response, error_response
 from utils.validators import validate_contribution_tier
+from apps.admin_panel.audit import log_action
 from apps.members.models import Member
 
 
@@ -63,28 +64,33 @@ class MatchGroupView(APIView):
                     "group_name": group.name,
                     "goal_type": group.goal_type,
                     "contribution_tier": str(group.contribution_tier),
-                    "current_members": group.members.count(),
+                    "member_count": group.members.count(),
                     "max_members": group.max_members,
                     "monthly_pot": str(group.monthly_pot),
+                    "pot_month": str(group.current_cycle_month or 1),
+                    "cycle_length": group.max_members,
                 },
             )
 
-        waitlist_entry = Waitlist.objects.filter(
-            member=member,
+        next_priority = Waitlist.objects.filter(
             goal_type=member.savings_goal,
             contribution_tier=member.contribution_tier,
             status="WAITING",
-        ).first()
+        ).count() + 1
 
-        waitlist_position = None
-        if waitlist_entry:
-            waitlist_position = waitlist_entry.priority
+        waitlist_entry, created = Waitlist.objects.get_or_create(
+            member=member,
+            goal_type=member.savings_goal,
+            contribution_tier=member.contribution_tier,
+            defaults={"status": "WAITING", "priority": next_priority},
+        )
 
         return success_response(
             "No matching group found. You can join the waitlist.",
             data={
+                "waitlist": True,
                 "matched": False,
-                "waitlist_position": waitlist_position,
+                "position": waitlist_entry.priority,
             },
         )
 
@@ -148,6 +154,13 @@ class ConfirmGroupJoinView(APIView):
                     "coverage_amount": coverage_amount,
                 },
             )
+
+        log_action(
+            member, "GROUP_JOINED",
+            f"Joined group {group.name} ({group.goal_type}, ₦{group.contribution_tier})",
+            amount=member.contribution_tier,
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
 
         return success_response(
             "You have successfully joined the group.",

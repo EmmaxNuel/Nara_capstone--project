@@ -1,105 +1,179 @@
-# NARA
+# NARA — Savings Circle Platform
 
-Backend for a Nigerian fintech platform that brings the traditional Ajo/Esusu savings model online. Groups of salary earners contribute a fixed amount monthly and take turns collecting the full pot.
+Nigerian fintech backend that formalises traditional Ajo/Esusu savings culture. Connects salary earners into structured savings circles — members contribute a fixed amount monthly, one member collects the full pot each month, and rotation continues until everyone has collected.
 
-## What it does
+## Tech Stack
 
-NARA connects people into savings circles based on how much they want to save and what they're saving for — land, a car, a house, business, school fees, or just flexible savings. Each group has 4-10 members. Every month, standing orders deduct contributions automatically before anyone can spend the money, and one member collects everything.
+| Layer | Technology |
+|-------|-----------|
+| Framework | Django 4.2 + Django REST Framework 3.15 |
+| Database | MySQL (utf8mb4) |
+| Auth | JWT (simplejwt) + OTP via Termii SMS |
+| Tasks | Celery + Redis (dev: `CELERY_TASK_ALWAYS_EAGER=True`) |
+| Payments | Flutterwave (direct debit / transfers) |
+| Notifications | Termii (SMS / WhatsApp), In-app notifications |
+| Docs | `NARA_DOCS.md` (full internal reference, 855 lines) |
 
-There's also micro-insurance built in (covers death or job loss with a 60-day grace period), a waitlist system for backfill, and a reserve fund that covers missed payments. NARA doesn't hold money directly — a licensed microfinance bank does that. This backend handles the logic, matching, notifications, and payment orchestration.
+## Domain Models
 
-## Apps
+| Model | App | Key Fields |
+|-------|-----|------------|
+| `Member` | `members` | email, phone, BVN, NIN, savings_goal, contribution_tier, status |
+| `SavingsGroup` | `groups` | goal_type, contribution_tier, max_members, cycle, reserve_fund |
+| `GroupMembership` | `groups` | member, group, rotation_position, has_collected |
+| `Contribution` | `contributions` | member, group, amount, month_year, status, method |
+| `StandingOrder` | `standing_orders` | member, bank_name, account_number, amount, deduction_day |
+| `PotDisbursement` | `disbursements` | group, recipient, amount, month_year, status |
+| `InsuranceCover` | `insurance` | member, coverage_amount, claim_reason, grace_period |
+| `Waitlist` | `waitlist` | member, goal_type, contribution_tier, priority |
+| `Notification` | `notifications` | recipient, type, channel (in-app/SMS/WhatsApp) |
+| `AuditLog` | `admin_panel` | member, action, amount, description, ip_address |
 
-The project is split into 10 Django apps:
+## API Endpoints
 
-- **authentication** — registration, OTP via SMS, JWT login/logout, password reset
-- **members** — user profile, dashboard, onboarding flow
-- **groups** — savings groups, rotation scheduling, the matching algorithm that places people together
-- **contributions** — contribution records, monthly deductions, PDF statements
-- **standing_orders** — bank standing order management via Flutterwave
-- **disbursements** — pot payout to the monthly collector
-- **insurance** — micro-insurance cover and claims processing
-- **waitlist** — queue for members waiting to be placed in a group
-- **notifications** — in-app, SMS, and WhatsApp notifications
-- **admin_panel** — admin config and audit log (append-only, CBN-compliant)
+All endpoints are prefixed with `/api/v1/`. Most require `Authorization: Bearer <access_token>`.
 
-## Tech stack
+### Authentication (`/api/v1/auth/`)
 
-- Django 4.2 + Django REST Framework
-- MySQL for the database
-- Redis for caching, OTP storage, and Celery broker
-- Celery + Celery Beat for background tasks and scheduling
-- Flutterwave v3 for payments and standing orders
-- Termii for SMS and WhatsApp
-- ReportLab for PDF generation
-- SimpleJWT for authentication (access + refresh tokens)
-- Gunicorn for serving, WhiteNoise for static files
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `register/` | No | Create account + send OTP |
+| POST | `verify-otp/` | No | Verify OTP → activate account + return JWT |
+| POST | `login/` | No | Email + password → JWT |
+| POST | `refresh/` | No | Refresh token → new access token |
+| POST | `logout/` | Yes | Blacklist refresh token |
+| POST | `forgot-password/` | No | Send password reset email |
+| POST | `reset-password/` | No | Confirm reset with token |
+
+### Onboarding (`/api/v1/onboarding/`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `goal/` | Yes | Set savings goal |
+| POST | `tier/` | Yes | Set contribution tier |
+| GET | `match/` | Yes | Find matching group or join waitlist |
+| POST | `confirm/` | Yes | Confirm group join → create standing order + insurance |
+
+### Members (`/api/v1/members/`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `me/` | Yes | Get profile |
+| PATCH | `me/` | Yes | Update profile |
+| GET | `me/dashboard/` | Yes | Dashboard stats (group, contributions, next payout) |
+| GET | `me/notifications/` | Yes | List notifications |
+| PATCH | `me/notifications/read/` | Yes | Mark all as read |
+
+### Groups (`/api/v1/groups/`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `` | Yes | List all FORMING groups |
+| GET | `my-group/` | Yes | Current member's group |
+| GET | `my-group/members/` | Yes | Group members list |
+| GET | `<uuid:group_id>/` | Yes | Group detail by ID |
+
+### Contributions (`/api/v1/contributions/`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `` | Yes | List member's contributions |
+| POST | `manual/` | Yes | Record manual contribution |
+| GET | `statement/` | Yes | PDF contribution statement |
+| GET | `<str:month_year>/` | Yes | Detail for specific month |
+
+### Standing Orders (`/api/v1/standing-orders/`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `` | Yes | Create standing order |
+| GET | `me/` | Yes | Get my standing order |
+| PATCH | `me/pause/` | Yes | Pause standing order |
+| PATCH | `me/resume/` | Yes | Resume standing order |
+
+### Disbursements (`/api/v1/disbursements/`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `` | Yes | List disbursements |
+| POST | `process/` | Yes | Trigger monthly pot disbursement |
+
+### Insurance (`/api/v1/insurance/`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `me/` | Yes | Get insurance cover details |
+| POST | `claim/` | Yes | File an insurance claim |
+| GET | `claim/status/` | Yes | Check claim status |
+
+### Waitlist (`/api/v1/waitlist/`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `` | Yes | Join waitlist |
+| DELETE | `` | Yes | Leave waitlist |
+| GET | `position/` | Yes | Check queue position |
+
+### Notifications (`/api/v1/notifications/`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `push-token/` | Yes | Register device push token |
 
 ## Setup
 
-You'll need Python 3.11+, MySQL, and Redis running locally.
-
 ```bash
-# virtual environment
-python -m venv venv
-venv\Scripts\activate    # Windows
+# 1. Virtual environment
+python -m venv venv && source venv/bin/activate
 
-# dependencies
+# 2. Dependencies
 pip install -r requirements.txt
-```
 
-Create a MySQL database:
+# 3. Database (MySQL)
+mysql -u root -p -e "CREATE DATABASE nara_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-```sql
-CREATE DATABASE nara_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
+# 4. Environment
+cp .env.example .env   # fill in DB_PASSWORD, leave API keys blank for dev
 
-Copy `.env.example` to `.env` and fill in the values (at minimum SECRET_KEY and DB credentials). Then:
-
-```bash
+# 5. Migrate + seed
 python manage.py migrate
 python manage.py createsuperuser
+
+# 6. Run
 python manage.py runserver
 ```
-
-For background tasks, start Celery in a separate terminal:
-
-```bash
-celery -A config worker --loglevel=info
-celery -A config beat --loglevel=info   # for scheduled tasks
-```
-
-## API
-
-All endpoints live under `/api/v1/`. The admin panel is at `/admin/`.
-
-Key endpoints:
-
-- `POST /api/v1/auth/register/` — create account, triggers OTP
-- `POST /api/v1/auth/verify-otp/` — verify phone, get JWT
-- `POST /api/v1/auth/login/` — email + password login
-- `GET /api/v1/members/me/` — your profile
-- `POST /api/v1/onboarding/goal/` — set savings goal
-- `POST /api/v1/onboarding/tier/` — set contribution amount
-- `GET /api/v1/onboarding/match/` — find best group match
-- `POST /api/v1/onboarding/confirm/` — join the group
-- `GET /api/v1/groups/my-group/` — your group and rotation schedule
-- `GET /api/v1/contributions/` — your contribution history
-- `GET /api/v1/contributions/statement/` — download PDF statement
 
 ## Tests
 
 ```bash
-python manage.py test apps
+python manage.py test          # all 44 tests
+python manage.py test apps.authentication   # auth tests only (9)
 ```
 
-Or per app:
+39/44 tests pass. 5 failures are pre-existing — they require live Termii/Flutterwave API keys (external 401 errors on SMS/transfers).
 
-```bash
-python manage.py test apps.authentication
-python manage.py test apps.contributions
-```
+## Background Tasks (Celery)
 
-## Deployment
+| Task | Schedule | Description |
+|------|----------|-------------|
+| `process_monthly_deductions` | 25th, 6am | Debit all standing orders via Flutterwave |
+| `check_failed_deductions` | Daily, 9am | Retry/suspend failed deductions |
+| `trigger_pot_disbursement` | Last day, 5pm | Send pot to monthly collector |
+| `send_deduction_reminders` | Daily, 8am | 3-day reminder before deduction |
+| `check_grace_periods` | Daily, 8:30am | Promote waitlist after 60-day grace |
+| `promote_waitlist_member` | On slot open | Highest-priority waitlist → group |
 
-The repo includes a `Procfile` for Render with three process types — web (gunicorn), worker (celery), and beat (celery beat). Set `DJANGO_SETTINGS_MODULE=config.settings.prod` and configure environment variables on the hosting dashboard.
+## Deployment (Render)
+
+Configure in Render dashboard:
+
+- **Build:** `pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput`
+- **Web:** `gunicorn config.wsgi:application --workers 2 --bind 0.0.0.0:$PORT`
+- **Worker:** `celery -A config worker --loglevel=info`
+- **Beat:** `celery -A config beat --loglevel=info`
+
+Set env vars: `SECRET_KEY`, `DEBUG=False`, `DJANGO_SETTINGS_MODULE=config.settings.prod`, database credentials, `REDIS_URL`, Flutterwave keys, Termii keys.
+
+---
+
+*See `NARA_DOCS.md` for the full 855-line developer reference covering every model, view, utility, security control, and design decision.*

@@ -3,6 +3,7 @@ from django.http import FileResponse
 from rest_framework.views import APIView
 
 from apps.groups.models import GroupMembership
+from apps.admin_panel.audit import log_action
 from utils.responses import success_response, error_response
 from .models import Contribution
 from .serializers import ContributionSerializer, ManualContributionSerializer
@@ -65,6 +66,13 @@ class ManualContributionView(APIView):
             deduction_date=data["deduction_date"],
             method="MANUAL",
             status="PROCESSED",
+        )
+
+        log_action(
+            member, "MANUAL_CONTRIBUTION",
+            f"Manual contribution of ₦{data['amount']} for {data['month_year']}",
+            amount=data["amount"],
+            ip_address=request.META.get("REMOTE_ADDR"),
         )
 
         serializer = ContributionSerializer(contribution)
