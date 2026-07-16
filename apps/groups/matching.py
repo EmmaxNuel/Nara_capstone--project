@@ -18,7 +18,7 @@ def find_best_matching_group(goal_type, contribution_tier):
     highest_member_count = -1
 
     for group in candidate_groups:
-        current_count = group.members.count()
+        current_count = len(group.members.all())
         if current_count < group.max_members and current_count > highest_member_count:
             best_group = group
             highest_member_count = current_count

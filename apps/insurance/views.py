@@ -2,10 +2,11 @@ from datetime import date
 from rest_framework.views import APIView
 
 from apps.members.models import Member
+from apps.standing_orders.models import StandingOrder
 from apps.admin_panel.audit import log_action
 from utils.responses import success_response, error_response
 from .models import InsuranceCover
-from .serializers import InsuranceCoverSerializer, FileCLaimSerializer
+from .serializers import InsuranceCoverSerializer, FileClaimSerializer
 
 
 class MyInsuranceCoverView(APIView):
@@ -30,7 +31,7 @@ class FileClaimView(APIView):
         if cover.claim_status != "NONE":
             return error_response("A claim has already been filed for this cover.")
 
-        serializer = FileCLaimSerializer(data=request.data)
+        serializer = FileClaimSerializer(data=request.data)
         if not serializer.is_valid():
             return error_response("Invalid data.", errors=serializer.errors)
 
@@ -48,10 +49,11 @@ class FileClaimView(APIView):
             member.save(update_fields=["status"])
 
             try:
-                member.standing_order.status = "PAUSED"
-                member.standing_order.pause_reason = "Insurance claim — job loss"
-                member.standing_order.save(update_fields=["status", "pause_reason"])
-            except Exception:
+                standing_order = member.standing_order
+                standing_order.status = "PAUSED"
+                standing_order.pause_reason = "Insurance claim — job loss"
+                standing_order.save(update_fields=["status", "pause_reason"])
+            except StandingOrder.DoesNotExist:
                 pass
 
         log_action(

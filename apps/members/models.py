@@ -28,6 +28,7 @@ class Member(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=14, unique=True)
     bank_name = models.CharField(max_length=100, blank=True)
+    bank_code = models.CharField(max_length=10, blank=True, default="")
     account_number = models.CharField(max_length=10, blank=True)
     bvn = models.CharField(max_length=11, blank=True)
     nin = models.CharField(max_length=11, blank=True)

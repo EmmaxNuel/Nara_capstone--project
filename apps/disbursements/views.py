@@ -67,7 +67,7 @@ class ProcessDisbursementView(APIView):
 
         transfer_response = initiate_transfer(
             account_number=collector.account_number,
-            bank_code="",
+            bank_code=collector.bank_code,
             amount=amount,
             narration=f"NARA pot disbursement — {month_year}",
             reference=reference,

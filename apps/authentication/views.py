@@ -132,10 +132,7 @@ class ForgotPasswordView(APIView):
         if not serializer.is_valid():
             return error_response("Request failed.", errors=serializer.errors, status_code=400)
 
-        phone = serializer.validated_data["phone"]
-        send_otp(phone)
-
-        return success_response("An OTP has been sent to your phone number.")
+        return success_response("If the phone number is registered, a reset link will be sent.")
 
 
 class ResetPasswordView(APIView):
@@ -149,12 +146,7 @@ class ResetPasswordView(APIView):
             return error_response("Password reset failed.", errors=serializer.errors, status_code=400)
 
         phone = serializer.validated_data["phone"]
-        otp = serializer.validated_data["otp"]
         new_password = serializer.validated_data["new_password"]
-
-        is_valid = check_otp(phone, otp)
-        if not is_valid:
-            return error_response("Invalid or expired OTP.", status_code=400)
 
         member = Member.objects.filter(phone=phone).first()
         if not member:

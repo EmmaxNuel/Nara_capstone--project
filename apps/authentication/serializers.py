@@ -11,10 +11,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = Member
         fields = ["full_name", "email", "phone", "password", "bank_name", "account_number", "bvn", "nin"]
 
-    def validate_phone(self, value):
-        validate_nigerian_phone(value)
-        return value
-
     def validate_email(self, value):
         if Member.objects.filter(email=value).exists():
             raise serializers.ValidationError("A member with this email already exists.")
@@ -51,10 +47,6 @@ class LoginSerializer(serializers.Serializer):
         return data
 
 
-class RefreshTokenSerializer(serializers.Serializer):
-    refresh = serializers.CharField()
-
-
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField()
 
@@ -71,5 +63,4 @@ class ForgotPasswordSerializer(serializers.Serializer):
 
 class ResetPasswordSerializer(serializers.Serializer):
     phone = serializers.CharField()
-    otp = serializers.CharField(min_length=6, max_length=6)
     new_password = serializers.CharField(write_only=True, min_length=8)

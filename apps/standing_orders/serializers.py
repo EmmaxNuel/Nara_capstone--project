@@ -9,7 +9,7 @@ class StandingOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = StandingOrder
         fields = [
-            "id", "member_name", "bank_name", "account_number", "amount",
+            "id", "member_name", "bank_name", "bank_code", "account_number", "amount",
             "deduction_day", "status", "activation_date", "last_executed", "pause_reason",
         ]
         read_only_fields = ["id", "activation_date", "last_executed", "status"]
@@ -28,7 +28,7 @@ class CreateStandingOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StandingOrder
-        fields = ["bank_name", "account_number", "amount", "deduction_day"]
+        fields = ["bank_name", "bank_code", "account_number", "amount", "deduction_day"]
 
     def validate_account_number(self, value):
         validate_account_number(value)

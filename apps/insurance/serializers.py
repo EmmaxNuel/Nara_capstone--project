@@ -19,5 +19,5 @@ class InsuranceCoverSerializer(serializers.ModelSerializer):
         ]
 
 
-class FileCLaimSerializer(serializers.Serializer):
+class FileClaimSerializer(serializers.Serializer):
     claim_reason = serializers.ChoiceField(choices=["DEATH", "JOB_LOSS"])

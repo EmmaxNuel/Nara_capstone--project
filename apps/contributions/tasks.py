@@ -23,9 +23,14 @@ def process_monthly_deductions(self):
         member = order.member
         reference = f"NARA-DED-{member.id}-{month_year}"
 
+        active_membership = member.memberships.filter(group__status="ACTIVE").first()
+        if not active_membership:
+            logger.warning("Member %s has no active group — skipping deduction.", member.email)
+            continue
+
         contribution, created = Contribution.objects.get_or_create(
             member=member,
-            group=member.memberships.filter(group__status="ACTIVE").first().group,
+            group=active_membership.group,
             month_year=month_year,
             defaults={
                 "amount": order.amount,
@@ -41,7 +46,7 @@ def process_monthly_deductions(self):
 
         response = initiate_debit(
             account_number=order.account_number,
-            bank_code="",
+            bank_code=order.bank_code,
             amount=order.amount,
             narration=f"NARA savings contribution — {month_year}",
             reference=reference,
@@ -148,7 +153,7 @@ def trigger_pot_disbursement(self):
 
         transfer_response = initiate_transfer(
             account_number=collector.account_number,
-            bank_code="",
+            bank_code=collector.bank_code if collector.bank_code else "",
             amount=amount,
             narration=f"NARA pot — {month_year}",
             reference=reference,
@@ -250,9 +255,9 @@ def check_grace_periods():
         days_elapsed = (date.today() - cover.claim_date).days
 
         if days_elapsed >= 60:
-            promote_waitlist_member.delay(
-                str(member.memberships.filter(group__status="ACTIVE").first().group.id)
-            )
+            active_membership = member.memberships.filter(group__status="ACTIVE").first()
+            if active_membership:
+                promote_waitlist_member.delay(str(active_membership.group.id))
 
 
 @shared_task

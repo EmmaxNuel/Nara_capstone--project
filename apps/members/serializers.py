@@ -9,7 +9,7 @@ class MemberProfileSerializer(serializers.ModelSerializer):
         model = Member
         fields = [
             "id", "full_name", "email", "phone", "bank_name",
-            "account_number", "bvn", "nin", "monthly_income",
+            "bank_code", "account_number", "bvn", "nin", "monthly_income",
             "contribution_tier", "savings_goal", "status",
             "is_verified", "joined_at",
         ]
@@ -20,7 +20,7 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Member
-        fields = ["full_name", "bank_name", "account_number", "monthly_income"]
+        fields = ["full_name", "bank_name", "bank_code", "account_number", "monthly_income"]
 
     def validate_account_number(self, value):
         if value:

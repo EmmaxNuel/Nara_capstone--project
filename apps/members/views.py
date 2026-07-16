@@ -1,5 +1,4 @@
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
 from datetime import datetime
 from django.db import models
 
@@ -35,6 +34,7 @@ class MemberProfileView(APIView):
             "email": m.email,
             "phone": m.phone,
             "bank_name": m.bank_name or None,
+            "bank_code": m.bank_code or None,
             "bank": m.bank_name or None,
             "account_number": m.account_number or None,
             "monthly_income": str(m.monthly_income) if m.monthly_income else None,
@@ -117,8 +117,8 @@ class MemberDashboardView(APIView):
             try:
                 pot_date = datetime.now().replace(day=1, hour=17, minute=0, second=0, microsecond=0)
                 pot_month = pot_date.strftime("%Y-%m")
-            except Exception:
-                pass
+            except (ValueError, OverflowError):
+                pot_month = None
 
         days_until_pot = None
         if group_data:
@@ -161,8 +161,8 @@ class MemberDashboardView(APIView):
                 "month_year": c.month_year,
                 "status": c.status,
                 "created_at": c.created_at.isoformat(),
-                "date": c.created_at.strftime("%-d %B %Y") if c.created_at else None,
-                "detail": c.created_at.strftime("%-d %B %Y") if c.created_at else None,
+                "date": c.created_at.strftime("%d %B %Y").lstrip("0") if c.created_at else None,
+                "detail": c.created_at.strftime("%d %B %Y").lstrip("0") if c.created_at else None,
             }
             recent_activity.append(entry)
             recent_activities.append(entry)
@@ -173,6 +173,7 @@ class MemberDashboardView(APIView):
                 "amount": int(standing_order.amount),
                 "date": next_deduction_date,
                 "bank": standing_order.bank_name,
+                "bank_code": standing_order.bank_code,
                 "status": standing_order.status.lower(),
             }
 
@@ -197,6 +198,7 @@ class MemberDashboardView(APIView):
                 "next_deduction": next_ded,
                 "next_deduction_amount": str(standing_order.amount) if standing_order else "0",
                 "bank_name": standing_order.bank_name if standing_order else None,
+                "bank_code": standing_order.bank_code if standing_order else None,
                 "bank": standing_order.bank_name if standing_order else None,
                 "deduction_status": standing_order.status.lower() if standing_order else "inactive",
                 "monthly_pot": int(float(group_data["monthly_pot"])) if group_data else 0,
